@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KumaBox</title>
+<meta name="description" content="KumaBox is an open-source, lightweight, high-density microVM sandbox runtime for AI agents. Hardware isolation per task, OCI images and CNI networking, running snapshots and fast clones.">
+<meta property="og:title" content="KumaBox">
+<meta property="og:description" content="A disposable computer for every agent task. Open-source microVM sandbox runtime on KVM.">
+<meta property="og:image" content="logo.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,600;112,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single column of full-width bands; each band holds a 1120px measure.
+   The hero pairs the thesis with a working terminal; sections alternate ground and surface. */
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --ink:#142030; --muted:#566476; --line:#dbe2ea;
+  --navy:#22324a; --steel:#3f6890; --honey:#b8790f;
+  --term-bg:#152131; --term-ink:#dbe5f0; --term-dim:#8193a8; --term-ok:#7cc29a; --term-prompt:#e2ab4a;
+  --series-a:#2f6aa8; --series-b:#b8790f;
+  --chip:#e8eef5;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --measure:1120px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1520; --surface:#141e2c; --ink:#e4ebf3; --muted:#9aa8b9; --line:#253244;
+    --navy:#cfdcea; --steel:#8cb0d6; --honey:#e2ab4a;
+    --term-bg:#0a111b; --term-ink:#dbe5f0; --term-dim:#7d8ea3; --term-ok:#7cc29a; --term-prompt:#e2ab4a;
+    --series-a:#5b95d1; --series-b:#b57c1c; --chip:#1c2a3c;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1520; --surface:#141e2c; --ink:#e4ebf3; --muted:#9aa8b9; --line:#253244;
+  --navy:#cfdcea; --steel:#8cb0d6; --honey:#e2ab4a;
+  --term-bg:#0a111b; --term-ink:#dbe5f0; --term-dim:#7d8ea3; --term-ok:#7cc29a; --term-prompt:#e2ab4a;
+  --series-a:#5b95d1; --series-b:#b57c1c; --chip:#1c2a3c;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--f-body);-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:var(--steel);text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--steel);outline-offset:3px;border-radius:4px}
+html:not([data-lang="zh"]) [lang="zh"]{display:none!important}
+html[data-lang="zh"] [lang="en"]{display:none!important}
+
+.wrap{max-width:var(--measure);margin-inline:auto;padding-inline:20px}
+section{padding-block:88px}
+section.alt{background:var(--surface);border-block:1px solid var(--line)}
+h1,h2,h3{font-family:var(--f-display);font-stretch:112%;color:var(--navy);text-wrap:balance;margin:0}
+h2{font-size:clamp(28px,3.6vw,40px);line-height:1.12;font-weight:800;letter-spacing:-.01em}
+h3{font-size:19px;line-height:1.3;font-weight:600}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--steel);margin:0 0 14px}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin:16px 0 0}
+p{margin:0}
+code,pre,kbd{font-family:var(--f-mono)}
+:not(pre)>code{font-size:.88em;background:var(--chip);padding:.1em .4em;border-radius:4px}
+
+/* nav */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:20px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--navy);font:800 19px/1 var(--f-display);font-stretch:112%}
+.brand img{width:34px;height:34px;border-radius:8px;background:#fff}
+.brand b{color:var(--steel);font-weight:800}
+.navlinks{display:flex;gap:22px;margin-left:auto}
+.navlinks a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500}
+.navlinks a:hover{color:var(--ink)}
+.navtools{display:flex;gap:8px;align-items:center}
+.btn-ghost{font:600 13px/1 var(--f-mono);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:6px;padding:8px 10px;cursor:pointer;text-decoration:none}
+.btn-ghost:hover{border-color:var(--steel)}
+@media (max-width:860px){.navlinks{display:none}.navtools{margin-left:auto}}
+
+/* hero */
+.hero{padding-block:72px 64px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:48px;align-items:center}
+@media (max-width:920px){.hero-grid{grid-template-columns:minmax(0,1fr)}}
+.hero h1{font-size:clamp(38px,5.6vw,64px);line-height:1.02;font-weight:800;letter-spacing:-.02em}
+html[data-lang="zh"] .hero h1{font-size:clamp(30px,4.4vw,52px);line-height:1.18;letter-spacing:0}
+.hero h1 em{font-style:normal;color:var(--steel)}
+.hero .lede{font-size:19px}
+.tagline{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 0;padding:0;list-style:none}
+.tagline li{font:500 13px/1 var(--f-mono);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;color:var(--ink)}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.btn{display:inline-flex;align-items:center;gap:8px;font:600 15px/1 var(--f-body);padding:13px 18px;border-radius:8px;text-decoration:none;border:1px solid transparent}
+.btn-primary{background:var(--navy);color:var(--bg)}
+.btn-primary:hover{filter:brightness(1.12)}
+.btn-line{border-color:var(--line);color:var(--ink);background:var(--surface)}
+.btn-line:hover{border-color:var(--steel)}
+
+.term{background:var(--term-bg);color:var(--term-ink);border-radius:12px;box-shadow:0 24px 60px -28px rgba(10,20,35,.55);overflow:hidden;min-width:0}
+.term-bar{display:flex;align-items:center;gap:7px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.term-bar i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.16)}
+.term-bar span{margin-left:8px;font:12px var(--f-mono);color:var(--term-dim)}
+.term pre{margin:0;padding:18px 18px 22px;font-size:13px;line-height:1.75;overflow-x:auto;white-space:pre}
+.term .p{color:var(--term-prompt)}
+.term .c{color:var(--term-dim)}
+.term .ok{color:var(--term-ok)}
+.cursor{display:inline-block;width:8px;height:15px;background:var(--term-prompt);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:56px;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.stat{padding:20px 22px;border-left:1px solid var(--line)}
+.stat:first-child{border-left:0}
+.stat .n{font:800 34px/1 var(--f-display);font-stretch:112%;color:var(--navy);font-variant-numeric:tabular-nums}
+.stat .n small{font-size:16px;font-weight:600;color:var(--muted);margin-left:3px}
+.stat .l{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+.stats-note{font-size:12.5px;color:var(--muted);margin-top:10px}
+@media (max-width:760px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat:nth-child(3){border-left:0}.stat:nth-child(n+3){border-top:1px solid var(--line)}}
+
+/* why */
+.why{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:40px}
+@media (max-width:860px){.why{grid-template-columns:1fr}}
+.why article{padding:22px 0 0;border-top:2px solid var(--navy)}
+.why .k{font:600 12px/1 var(--f-mono);color:var(--honey);letter-spacing:.08em;text-transform:uppercase}
+.why h3{margin-top:10px}
+.why p{color:var(--muted);margin-top:8px;font-size:15px}
+
+/* pillars */
+.pillars{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:40px}
+@media (max-width:760px){.pillars{grid-template-columns:1fr}}
+.pillar{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:26px}
+section:not(.alt) .pillar{background:var(--surface)}
+.pillar header{display:flex;align-items:baseline;gap:12px}
+.pillar header .tag{font:600 12px/1 var(--f-mono);color:var(--steel)}
+.pillar > p{color:var(--muted);margin-top:8px;font-size:15px}
+.pillar ul{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:10px}
+.pillar li{display:grid;grid-template-columns:16px minmax(0,1fr);gap:10px;font-size:14.5px;line-height:1.55}
+.pillar li::before{content:"";width:8px;height:8px;margin-top:8px;border:1.5px solid var(--steel);transform:rotate(45deg)}
+.pillar li b{color:var(--ink);font-weight:600}
+
+/* fork flow */
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin-top:44px;counter-reset:s}
+@media (max-width:900px){.flow{grid-template-columns:1fr}}
+.step{position:relative;padding:18px 20px 20px;border:1px solid var(--line);background:var(--surface);margin-left:-1px}
+@media (max-width:900px){.step{margin-left:0;margin-top:-1px}}
+.step:first-child{border-radius:12px 0 0 12px}
+.step:last-child{border-radius:0 12px 12px 0;background:color-mix(in srgb,var(--steel) 12%,var(--surface));border-color:color-mix(in srgb,var(--steel) 45%,var(--line))}
+@media (max-width:900px){.step:first-child{border-radius:12px 12px 0 0}.step:last-child{border-radius:0 0 12px 12px}}
+.step code{font-size:12.5px;color:var(--steel);background:none;padding:0}
+.step h3{font-size:17px;margin-top:6px}
+.step p{font-size:14px;color:var(--muted);margin-top:6px;line-height:1.55}
+.cost{display:grid;grid-template-columns:3fr 1.25fr;gap:10px;margin-top:12px;font-size:13px}
+@media (max-width:900px){.cost{grid-template-columns:1fr}}
+.cost div{padding:9px 12px;border-radius:8px;background:var(--chip);color:var(--muted)}
+.cost div b{color:var(--ink)}
+.clone-notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:36px}
+@media (max-width:860px){.clone-notes{grid-template-columns:1fr}}
+.clone-notes h3{font-size:16px}
+.clone-notes p{font-size:14.5px;color:var(--muted);margin-top:6px}
+
+/* perf */
+.perf{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;margin-top:40px;align-items:start}
+@media (max-width:920px){.perf{grid-template-columns:minmax(0,1fr)}}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px}
+.chart h3{font-size:16px}
+.chart .sub{font-size:13px;color:var(--muted);margin-top:4px}
+.legend{display:flex;gap:18px;margin:16px 0 6px;font-size:13px;color:var(--ink)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:12px;height:12px;border-radius:3px}
+.group{margin-top:16px}
+.group .gl{font-size:13.5px;font-weight:600;margin-bottom:6px}
+.bar-row{display:grid;grid-template-columns:minmax(0,1fr) 64px;align-items:center;gap:10px;height:22px;margin-top:3px}
+.track{position:relative;height:14px}
+.bar{position:absolute;inset:0 auto 0 0;border-radius:0 4px 4px 0;min-width:2px}
+.bar-row .v{font:500 13px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink);text-align:right}
+.bar-row:hover .bar{filter:brightness(1.12)}
+.axis{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:10px;margin-top:10px}
+.axis div{display:flex;justify-content:space-between;font:11px var(--f-mono);color:var(--muted);border-top:1px solid var(--line);padding-top:5px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line)}
+td{white-space:nowrap}
+th{font:600 12px/1.3 var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase;background:var(--bg)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--f-mono)}
+tr:last-child td{border-bottom:0}
+td .hi{color:var(--navy);font-weight:600}
+.notes{font-size:13px;color:var(--muted);margin-top:14px;display:grid;gap:6px}
+
+/* ecosystem */
+.eco{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:44px;margin-top:40px;align-items:start}
+@media (max-width:920px){.eco{grid-template-columns:minmax(0,1fr)}}
+.pipeline{display:grid;gap:10px}
+.pipe{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.pipe .w{font:600 12px var(--f-mono);color:var(--muted)}
+.pipe .t{font-size:14.5px}
+.pipe .badge{font:600 11px/1 var(--f-mono);padding:5px 8px;border-radius:999px;background:var(--chip);color:var(--muted)}
+.pipe.change .badge{background:var(--navy);color:var(--bg)}
+.pipe code{font-size:12.5px;overflow-wrap:anywhere}
+@media (max-width:520px){.pipe{grid-template-columns:minmax(0,1fr) auto}.pipe .w{grid-column:1/-1}}
+.tabs{background:var(--term-bg);border-radius:12px;overflow:hidden;min-width:0}
+.tablist{display:flex;gap:2px;padding:8px 8px 0;border-bottom:1px solid rgba(255,255,255,.08);overflow-x:auto}
+.tablist button{font:600 13px var(--f-mono);color:var(--term-dim);background:transparent;border:0;padding:10px 14px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap}
+.tablist button[aria-selected="true"]{color:var(--term-ink);background:rgba(255,255,255,.07)}
+.panel{position:relative}
+.panel pre{margin:0;padding:18px;color:var(--term-ink);font-size:13px;line-height:1.7;overflow-x:auto}
+.panel .c{color:var(--term-dim)}
+.panel .s{color:#9fd0b3}
+.panel .k{color:#e2ab4a}
+.copy{position:absolute;top:10px;right:10px;font:600 12px var(--f-mono);color:var(--term-dim);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 9px;cursor:pointer}
+.copy:hover{color:var(--term-ink)}
+.panel-note{padding:0 18px 16px;font-size:12.5px;color:var(--term-dim)}
+
+/* use cases */
+.uses{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:40px}
+@media (max-width:860px){.uses{grid-template-columns:1fr}}
+.use{background:var(--surface);padding:22px}
+section:not(.alt) .use{background:var(--surface)}
+.use h3{font-size:17px}
+.use p{font-size:14.5px;color:var(--muted);margin-top:6px}
+
+/* quick start */
+.qs{margin-top:36px}
+.qs .tabs{max-width:880px}
+
+/* roadmap */
+.road{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px;margin-top:36px}
+@media (max-width:760px){.road{grid-template-columns:1fr}}
+.road h3{font:600 13px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.road ul{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:9px}
+.road li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:15px}
+.road li .m{font:600 13px var(--f-mono);color:var(--muted)}
+.road .done .m{color:var(--term-ok)}
+.exp{font:600 11px/1 var(--f-mono);color:var(--honey);border:1px solid currentColor;border-radius:999px;padding:2px 6px;margin-left:6px;vertical-align:2px}
+
+footer{padding-block:48px;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:center;justify-content:space-between;font-size:14px;color:var(--muted)}
+footer nav{display:flex;flex-wrap:wrap;gap:18px}
+footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="KumaBox home"><img src="mark.png" alt="" width="34" height="34"><span>Kuma<b>Box</b></span></a>
+    <nav class="navlinks" aria-label="Sections">
+      <a href="#why"><span lang="en">Why</span><span lang="zh">为什么</span></a>
+      <a href="#features"><span lang="en">Features</span><span lang="zh">特性</span></a>
+      <a href="#performance"><span lang="en">Performance</span><span lang="zh">性能</span></a>
+      <a href="#ecosystem"><span lang="en">Integrate</span><span lang="zh">接入</span></a>
+      <a href="#start"><span lang="en">Quick start</span><span lang="zh">快速开始</span></a>
+      <a href="#roadmap"><span lang="en">Roadmap</span><span lang="zh">路线图</span></a>
+    </nav>
+    <div class="navtools">
+      <button class="btn-ghost" id="lang-toggle" type="button" aria-label="Switch language"><span lang="en">中文</span><span lang="zh">EN</span></button>
+      <a class="btn-ghost" href="https://github.com/kgpp34/KumaBox" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow"><span lang="en">Open-source microVM sandbox runtime</span><span lang="zh">开源 microVM 沙箱运行时</span></p>
+      <h1><span lang="en">A disposable computer for <em>every agent task</em>.</span><span lang="zh">每个 Agent 任务，<br><em>一台用完即弃的电脑</em>。</span></h1>
+      <p class="lede"><span lang="en">KumaBox gives every agent its own KVM microVM: its own kernel, disk and network namespace. It is built to pack many sandboxes onto one host, takes OCI images and CNI networks as they are, and forks a warmed-up machine in tens of milliseconds.</span><span lang="zh">KumaBox 给每个 Agent 一台独立的 KVM 虚拟机：独立内核、独立磁盘、独立网络命名空间。它为单机高密度部署而设计；直接使用现有的 OCI 镜像和 CNI 网络；预热好的机器几十毫秒就能分叉出一台新的。</span></p>
+      <ul class="tagline">
+        <li><span lang="en">Lightweight</span><span lang="zh">轻量</span></li>
+        <li><span lang="en">High density</span><span lang="zh">高密度</span></li>
+        <li><span lang="en">Hardware isolation</span><span lang="zh">硬件隔离</span></li>
+        <li><span lang="en">OCI + CNI native</span><span lang="zh">原生 OCI + CNI</span></li>
+        <li>MIT</li>
+      </ul>
+      <div class="cta">
+        <a class="btn btn-primary" href="#start"><span lang="en">Get started</span><span lang="zh">快速开始</span></a>
+        <a class="btn btn-line" href="https://github.com/kgpp34/KumaBox" target="_blank" rel="noopener"><span lang="en">View on GitHub</span><span lang="zh">在 GitHub 查看</span></a>
+      </div>
+    </div>
+    <div class="term" aria-label="Example terminal session">
+      <div class="term-bar"><i></i><i></i><i></i><span>root@kvm-host</span></div>
+<pre><span class="c"># one machine, warmed once</span>
+<span class="p">$</span> kumabox run ghcr.io/kgpp34/kumabox/ubuntu:24.04 --name base
+<span class="ok">✓</span> base  running  2 vCPU · 1 GiB · own kernel
+<span class="p">$</span> kumabox exec base -- pip install -r requirements.txt
+<span class="p">$</span> kumabox snapshot save base --name warm
+<span class="ok">✓</span> warm  memory + devices + disk, one pause point
+
+<span class="c"># forked many times</span>
+<span class="p">$</span> for i in $(seq 1 16); do
+    kumabox clone warm --name try-$i &amp;
+  done; wait
+<span class="ok">✓</span> try-1 … try-16  running · new IP, hostname, entropy
+<span class="p">$</span> <span class="cursor" aria-hidden="true"></span></pre>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="n">223<small>ms</small></div><div class="l"><span lang="en">cold boot to a ready guest agent</span><span lang="zh">冷启动到 guest agent 就绪</span></div></div>
+      <div class="stat"><div class="n">50<small>ms</small></div><div class="l"><span lang="en">clone from a running snapshot</span><span lang="zh">从运行态快照克隆</span></div></div>
+      <div class="stat"><div class="n">205<small>ms</small></div><div class="l"><span lang="en">per clone, 16 cloned at once</span><span lang="zh">16 路并发克隆，单个耗时</span></div></div>
+      <div class="stat"><div class="n">1<small lang="en">binary</small><small lang="zh">个二进制</small></div><div class="l"><span lang="en">no daemon, database or cluster to run</span><span lang="zh">无常驻守护进程、无数据库、无集群</span></div></div>
+    </div>
+    <p class="stats-note"><span lang="en">Measured on AMD Ryzen 7 9700X bare metal, no NIC attached. Method and comparison in <a href="#performance">Performance</a>.</span><span lang="zh">AMD Ryzen 7 9700X 裸金属实测，不挂网卡。测试方法与对比见<a href="#performance">性能</a>一节。</span></p>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="alt" id="why">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">Why not just Docker</span><span lang="zh">为什么不直接用 Docker</span></p>
+    <h2><span lang="en">Agents run code nobody reviewed. Containers were not built for that.</span><span lang="zh">Agent 执行的是没人审过的代码，容器不是为此设计的。</span></h2>
+    <p class="lede"><span lang="en">Many teams start with Docker as a sandbox. It works for a demo, then hits three walls as soon as agents do real work at scale.</span><span lang="zh">很多团队一开始用 Docker 当沙箱。演示时没问题，Agent 一旦开始规模化地干真活，就会撞上三堵墙。</span></p>
+    <div class="why">
+      <article>
+        <div class="k"><span lang="en">Isolation</span><span lang="zh">隔离</span></div>
+        <h3><span lang="en">One kernel, shared by everyone</span><span lang="zh">所有任务共用一个内核</span></h3>
+        <p><span lang="en">A single kernel bug is a path out of every container on the host. KumaBox puts each task behind KVM with its own guest kernel.</span><span lang="zh">一个内核漏洞，就可能让宿主机上所有容器失守。KumaBox 让每个任务都有自己的 guest 内核，运行在 KVM 硬件边界之内。</span></p>
+      </article>
+      <article>
+        <div class="k">snapshot / restore</div>
+        <h3><span lang="en">No memory snapshots</span><span lang="zh">没有内存级快照</span></h3>
+        <p><span lang="en">Docker checkpoints still depend on experimental CRIU support. Without them you cannot warm an environment once and fork it, or park an agent and resume it later. KumaBox makes both routine.</span><span lang="zh">Docker 的 checkpoint 至今依赖实验性的 CRIU。做不到预热一次再分叉，也做不到把 Agent 挂起、之后原样恢复。KumaBox 把这两件事变成日常操作。</span></p>
+      </article>
+      <article>
+        <div class="k"><span lang="en">Full OS</span><span lang="zh">完整系统</span></div>
+        <h3><span lang="en">Desktops and browsers need privileges</span><span lang="zh">桌面和浏览器需要特权</span></h3>
+        <p><span lang="en">Computer-use and browser agents want systemd, a desktop and a real browser. In a container that usually means --privileged, which weakens isolation further. A microVM is simply a full Linux machine.</span><span lang="zh">Computer Use 和浏览器 Agent 需要 systemd、桌面和完整浏览器，放进容器往往要开 --privileged，隔离反而更弱。microVM 本身就是一台完整的 Linux 机器。</span></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">Design goals</span><span lang="zh">设计目标</span></p>
+    <h2><span lang="en">Light enough to run everywhere, dense enough to run everything.</span><span lang="zh">轻到随处可装，密到装得下所有 Agent。</span></h2>
+    <div class="pillars">
+      <article class="pillar">
+        <header><h3><span lang="en">Lightweight</span><span lang="zh">轻量</span></h3><span class="tag">1 binary</span></header>
+        <p><span lang="en">Install it on any Linux host with KVM. Nothing else to operate.</span><span lang="zh">任何带 KVM 的 Linux 主机都能装，没有其他组件要运维。</span></p>
+        <ul>
+          <li><span><b lang="en">No resident daemon.</b><b lang="zh">零守护进程。</b> <span lang="en">Each command opens state, takes locks, acts and exits. Only the VMs keep running.</span><span lang="zh">每条命令打开状态、加锁、执行、退出，只有虚拟机在运行。</span></span></li>
+          <li><span><b lang="en">No external services.</b><b lang="zh">零外部依赖。</b> <span lang="en">Metadata lives in embedded SQLite. No database, cache, object store or Kubernetes.</span><span lang="zh">元数据存在嵌入式 SQLite，不需要数据库、缓存、对象存储或 K8s。</span></span></li>
+          <li><span><b lang="en">One VMM process per sandbox.</b><b lang="zh">每沙箱一个 VMM 进程。</b> <span lang="en">Cloud Hypervisor with direct kernel boot; one sandbox failing never takes others down.</span><span lang="zh">Cloud Hypervisor 内核直启动，一个沙箱出问题不会拖垮其他沙箱。</span></span></li>
+          <li><span><b lang="en">Host check built in.</b><b lang="zh">内置主机体检。</b> <span lang="en"><code>kumabox doctor --fix</code> verifies KVM, the VMM, CNI and EROFS tools.</span><span lang="zh"><code>kumabox doctor --fix</code> 检查并修复 KVM、VMM、CNI 和 EROFS 工具链。</span></span></li>
+        </ul>
+      </article>
+      <article class="pillar">
+        <header><h3><span lang="en">High density</span><span lang="zh">高密度</span></h3><span class="tag">shared pages</span></header>
+        <p><span lang="en">Each extra sandbox pays only for what it changes.</span><span lang="zh">多一个沙箱，只为它改动的部分付费。</span></p>
+        <ul>
+          <li><span><b lang="en">Image layers shared host-wide.</b><b lang="zh">镜像层全机共享。</b> <span lang="en">OCI layers become read-only EROFS disks served from the host page cache, so a base system sits in memory once.</span><span lang="zh">OCI 层转成只读 EROFS 盘，走宿主页缓存，同一套基础系统在内存里只存一份。</span></span></li>
+          <li><span><b lang="en">Clones share memory pages.</b><b lang="zh">克隆共享内存页。</b> <span lang="en">Snapshot memory is hard-linked and restored copy-on-write; untouched pages stay shared across clones.</span><span lang="zh">快照内存硬链接共享，以写时复制方式恢复，未修改的页在克隆之间共享。</span></span></li>
+          <li><span><b lang="en">Idle memory goes back.</b><b lang="zh">空闲内存归还。</b> <span lang="en">virtio-balloon with free page reporting returns memory the guest frees.</span><span lang="zh">virtio-balloon 开启 free page reporting，guest 释放的内存交还宿主。</span></span></li>
+          <li><span><b lang="en">Disks on demand.</b><b lang="zh">磁盘按需占用。</b> <span lang="en">Sparse copy-on-write disks, reflinked on clone, with direct I/O so data is not cached twice.</span><span lang="zh">稀疏写时复制盘，克隆时 reflink 共享，direct I/O 避免重复缓存。</span></span></li>
+        </ul>
+      </article>
+      <article class="pillar">
+        <header><h3><span lang="en">Secure by default</span><span lang="zh">默认安全</span></h3><span class="tag">KVM boundary</span></header>
+        <p><span lang="en">Every input is treated as untrusted, including the guest.</span><span lang="zh">所有输入都按不可信处理，包括 guest 本身。</span></p>
+        <ul>
+          <li><span><b lang="en">Own kernel, own process, own cgroup.</b><b lang="zh">独立内核、进程与 cgroup。</b> <span lang="en">The VMM is born inside its cgroup via CLONE_INTO_CGROUP, so there is no window before it is confined.</span><span lang="zh">VMM 通过 CLONE_INTO_CGROUP 在创建瞬间就落入专属 cgroup，没有先启动再移入的空档。</span></span></li>
+          <li><span><b lang="en">Safe clones.</b><b lang="zh">克隆安全。</b> <span lang="en">NICs are swapped while the clone is still paused, and the guest kernel's CRNG is reseeded, so clones never share an address or random state.</span><span lang="zh">在克隆仍暂停时换网卡，并强制 guest 内核 CRNG 重新播种，副本之间不会共用地址或随机数状态。</span></span></li>
+          <li><span><b lang="en">No SSH.</b><b lang="zh">不需要 SSH。</b> <span lang="en">Commands travel over vsock with bounded frames; no port is exposed to run them.</span><span lang="zh">命令走 vsock，消息帧有上限，执行命令不暴露任何端口。</span></span></li>
+          <li><span><b lang="en">Hostile images handled.</b><b lang="zh">镜像按不可信处理。</b> <span lang="en">Decompression limits, no link following, digest pinning and credential-safe registry errors.</span><span lang="zh">解压限额、不跟随链接、digest 锁定，Registry 报错不泄露凭据。</span></span></li>
+        </ul>
+      </article>
+      <article class="pillar">
+        <header><h3><span lang="en">Container-native</span><span lang="zh">原生兼容容器生态</span></h3><span class="tag">OCI · CNI</span></header>
+        <p><span lang="en">Keep your Dockerfiles, CI pipeline, registry and network plugins.</span><span lang="zh">Dockerfile、CI 流水线、镜像仓库和网络插件都沿用。</span></p>
+        <ul>
+          <li><span><b lang="en">OCI images are first-class.</b><b lang="zh">OCI 镜像是一等公民。</b> <span lang="en">Pull from any registry, a local Docker daemon, an OCI layout or a tar archive.</span><span lang="zh">可从任意 Registry、本地 Docker、OCI 目录或 tar 归档导入。</span></span></li>
+          <li><span><b lang="en">Reproducible conversion.</b><b lang="zh">可复现的转换。</b> <span lang="en">The same image converts to byte-identical EROFS on every host.</span><span lang="zh">同一镜像在任何主机上都转换出逐字节一致的 EROFS。</span></span></li>
+          <li><span><b lang="en">Standard CNI.</b><b lang="zh">标准 CNI。</b> <span lang="en">Reads <code>/etc/cni/net.d</code> and <code>/opt/cni/bin</code>, the same plugins your containers use.</span><span lang="zh">读取 <code>/etc/cni/net.d</code> 与 <code>/opt/cni/bin</code>，和容器用的是同一套插件。</span></span></li>
+          <li><span><b lang="en">Real devices when you need them.</b><b lang="zh">需要时接入真实设备。</b> <span lang="en">Hot-plug data disks, virtio-fs shares and VFIO PCI devices such as GPUs.</span><span lang="zh">热插拔数据盘、virtio-fs 共享目录，以及 GPU 等 VFIO PCI 设备。</span></span></li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- FORK -->
+<section class="alt" id="fork">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">Running snapshots</span><span lang="zh">运行态快照</span></p>
+    <h2><span lang="en">Warm once, fork many.</span><span lang="zh">预热一次，分叉 N 份。</span></h2>
+    <p class="lede"><span lang="en">Agents retry, branch and explore. Pay for boot, installs and warm caches one time, then give every attempt its own copy of a ready machine.</span><span lang="zh">Agent 天生会重试、分支、并行探索。开机、装依赖、热缓存只付一次成本，之后每次尝试都拿到一台准备好的机器副本。</span></p>
+    <div class="flow">
+      <div class="step"><code>image pull</code><h3><span lang="en">OCI image</span><span lang="zh">OCI 镜像</span></h3><p><span lang="en">Pinned by digest, converted to shared EROFS layers.</span><span lang="zh">按 digest 锁定，转为共享 EROFS 层。</span></p></div>
+      <div class="step"><code>run</code><h3><span lang="en">Cold boot</span><span lang="zh">冷启动</span></h3><p><span lang="en">Marked running only once the guest agent answers.</span><span lang="zh">guest agent 应答后才标记为 running。</span></p></div>
+      <div class="step"><code>exec</code><h3><span lang="en">Warm up</span><span lang="zh">预热</span></h3><p><span lang="en">Install dependencies, fetch code, build, fill caches.</span><span lang="zh">装依赖、拉代码、编译、热缓存。</span></p></div>
+      <div class="step"><code>snapshot save</code><h3><span lang="en">Running snapshot</span><span lang="zh">运行态快照</span></h3><p><span lang="en">Memory, devices and disk at one pause point; the source resumes at once.</span><span lang="zh">同一暂停点捕获内存、设备与磁盘，源沙箱随即恢复。</span></p></div>
+      <div class="step"><code>clone × N</code><h3><span lang="en">N fresh sandboxes</span><span lang="zh">N 台新沙箱</span></h3><p><span lang="en">Same warm state; new ID, IP, hostname, entropy and VMM.</span><span lang="zh">继承预热状态，换新 ID、IP、主机名、熵与 VMM。</span></p></div>
+    </div>
+    <div class="cost">
+      <div><b lang="en">Paid once:</b><b lang="zh">只付一次：</b> <span lang="en">boot and setup, often minutes</span><span lang="zh">开机加装环境，常常是分钟级</span></div>
+      <div><b lang="en">Per attempt:</b><b lang="zh">每次尝试：</b> <span lang="en">one clone</span><span lang="zh">一次克隆</span></div>
+    </div>
+    <div class="clone-notes">
+      <div><h3>restore</h3><p><span lang="en">Roll a sandbox back to the snapshot in place, for agents that try, fail and try again.</span><span lang="zh">原地回滚到快照点，适合反复试错的 Agent。</span></p></div>
+      <div><h3>hibernate</h3><p><span lang="en">Persist the full state and release the VMM. A parked agent costs no CPU or memory.</span><span lang="zh">持久化完整状态后释放 VMM，挂起的 Agent 不占 CPU 和内存。</span></p></div>
+      <div><h3>export / import</h3><p><span lang="en">Sparse, checksummed archives that carry their image digest. Move a warmed environment to another host and clone it there.</span><span lang="zh">稀疏、带校验、锁定镜像 digest 的归档。把配好的环境搬到另一台主机直接克隆。</span></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PERFORMANCE -->
+<section id="performance">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">Performance</span><span lang="zh">性能</span></p>
+    <h2><span lang="en">On par with the fastest open-source microVM sandboxes.</span><span lang="zh">与最快的开源 microVM 沙箱处于同一水平。</span></h2>
+    <p class="lede"><span lang="en">We measure from issuing the command until the guest agent inside the new sandbox answers. Cocoon, a Cloud Hypervisor sandbox with published benchmarks, was run on the same host for reference.</span><span lang="zh">计时从发出命令开始，到新沙箱里的 guest agent 应答为止。作为参照，我们在同一台主机上也跑了公开发布基准的 Cloud Hypervisor 沙箱 Cocoon。</span></p>
+    <div class="perf">
+      <figure class="chart" style="margin:0">
+        <h3><span lang="en">Same host, KumaBox vs Cocoon</span><span lang="zh">同一台测试机：KumaBox 与 Cocoon</span></h3>
+        <p class="sub"><span lang="en">Milliseconds, lower is better</span><span lang="zh">单位毫秒，越低越好</span></p>
+        <div class="legend"><span><i style="background:var(--series-a)"></i>KumaBox</span><span><i style="background:var(--series-b)"></i>Cocoon</span></div>
+        <div id="bars"></div>
+        <div class="axis"><div><span>0</span><span>150</span><span>300</span><span>450</span><span>600</span></div><span></span></div>
+      </figure>
+      <div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th><span lang="en">Metric</span><span lang="zh">指标</span></th><th class="num">Ryzen 9700X</th><th class="num"><span lang="en">Test host</span><span lang="zh">测试机</span></th><th class="num"><span lang="en">Cocoon, same host</span><span lang="zh">Cocoon 同机</span></th></tr></thead>
+            <tbody>
+              <tr><td><span lang="en">Cold boot, 0 NIC</span><span lang="zh">冷启动，0 网卡</span></td><td class="num"><span class="hi">223</span></td><td class="num">464.9</td><td class="num">452.0</td></tr>
+              <tr><td><span lang="en">Cold boot, 1 NIC</span><span lang="zh">冷启动，1 网卡</span></td><td class="num"><span class="hi">267</span></td><td class="num">558.0</td><td class="num">545.6</td></tr>
+              <tr><td><span lang="en">Snapshot clone, 0 NIC</span><span lang="zh">快照克隆，0 网卡</span></td><td class="num"><span class="hi">50.1</span></td><td class="num">90.9</td><td class="num">80.9</td></tr>
+              <tr><td><span lang="en">Snapshot clone, 1 NIC</span><span lang="zh">快照克隆，1 网卡</span></td><td class="num"><span class="hi">90.4</span></td><td class="num">153.2</td><td class="num">144.1</td></tr>
+              <tr><td><span lang="en">16 clones at once, per clone</span><span lang="zh">16 路并发克隆，单个</span></td><td class="num"><span class="hi">204.6</span></td><td class="num">—</td><td class="num">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="notes">
+          <p><span lang="en">All values in milliseconds, KumaBox unless labelled. Ryzen 9700X: AMD Ryzen 7 9700X, 8 cores / 16 threads, bare metal.</span><span lang="zh">单位毫秒，未注明者均为 KumaBox。Ryzen 9700X：AMD Ryzen 7 9700X，8 核 16 线程裸金属。</span></p>
+          <p><span lang="en">For reference, Cocoon's own published bare-metal round on the same CPU reports 216.5 ms cold boot and 208.5 ms per clone in a 16-way burst (<a href="https://cocoonstack.github.io/sandbox/benchmarks.html" target="_blank" rel="noopener">source</a>).</span><span lang="zh">作为参照，Cocoon 在同型号 CPU 上公开发布的裸金属基准为：冷启动 216.5 ms，16 路并发时单个克隆 208.5 ms（<a href="https://cocoonstack.github.io/sandbox/benchmarks.html" target="_blank" rel="noopener">来源</a>）。</span></p>
+          <p><span lang="en">Reproduce with the harness in <a href="https://github.com/kgpp34/KumaBox/tree/rewrite/p12-v1/tests/benchmark" target="_blank" rel="noopener">tests/benchmark</a>.</span><span lang="zh">可用仓库中的 <a href="https://github.com/kgpp34/KumaBox/tree/rewrite/p12-v1/tests/benchmark" target="_blank" rel="noopener">tests/benchmark</a> 脚本复现。</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ECOSYSTEM -->
+<section class="alt" id="ecosystem">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">Integrate</span><span lang="zh">接入</span></p>
+    <h2><span lang="en">Bring the images and networks you already have.</span><span lang="zh">直接用你已有的镜像和网络。</span></h2>
+    <p class="lede"><span lang="en">Swap the container runtime at the very end of your pipeline. Then drive sandboxes from the CLI, an HTTP API, the Python and TypeScript SDKs, or an E2B-style client.</span><span lang="zh">只在流水线的最后一步把容器运行时换掉。之后用命令行、HTTP API、Python / TypeScript SDK 或 E2B 风格的客户端来驱动沙箱。</span></p>
+    <div class="eco">
+      <div class="pipeline">
+        <div class="pipe change"><span class="w">Dockerfile</span><span class="t"><span lang="en">Base on the KumaBox image (kernel, initrd and agent included)</span><span lang="zh">基于 KumaBox 基础镜像（已含内核、initrd 和 agent）</span><br><code>FROM ghcr.io/kgpp34/kumabox/ubuntu:24.04</code></span><span class="badge"><span lang="en">1 line</span><span lang="zh">改一行</span></span></div>
+        <div class="pipe"><span class="w">CI build</span><span class="t"><span lang="en">Same pipeline, same build tools</span><span lang="zh">同一条流水线，同一套构建工具</span></span><span class="badge"><span lang="en">unchanged</span><span lang="zh">不变</span></span></div>
+        <div class="pipe"><span class="w">Registry</span><span class="t"><span lang="en">Push, tag and pin by digest as usual</span><span lang="zh">照常推送、打标签、按 digest 锁定</span></span><span class="badge"><span lang="en">unchanged</span><span lang="zh">不变</span></span></div>
+        <div class="pipe"><span class="w">CNI</span><span class="t"><span lang="en">Existing plugins in /etc/cni/net.d give each VM its own netns and IP</span><span lang="zh">/etc/cni/net.d 里的现有插件为每台 VM 分配独立 netns 和 IP</span></span><span class="badge"><span lang="en">unchanged</span><span lang="zh">不变</span></span></div>
+        <div class="pipe change"><span class="w">Run</span><span class="t"><code>kumabox image pull</code> → <code>kumabox run</code></span><span class="badge">microVM</span></div>
+      </div>
+      <div class="tabs" data-tabs>
+        <div class="tablist" role="tablist" aria-label="Client examples">
+          <button role="tab" aria-selected="true" aria-controls="t-py" id="tb-py">Python</button>
+          <button role="tab" aria-selected="false" aria-controls="t-ts" id="tb-ts" tabindex="-1">TypeScript</button>
+          <button role="tab" aria-selected="false" aria-controls="t-e2b" id="tb-e2b" tabindex="-1">E2B</button>
+          <button role="tab" aria-selected="false" aria-controls="t-api" id="tb-api" tabindex="-1">Server</button>
+        </div>
+        <div class="panel" role="tabpanel" id="t-py" aria-labelledby="tb-py">
+          <button class="copy" type="button">copy</button>
+<pre><span class="k">from</span> kumabox <span class="k">import</span> Client
+
+client = Client(token=<span class="s">"YOUR_API_TOKEN"</span>)
+base = client.create(<span class="s">"ghcr.io/kgpp34/kumabox/ubuntu:24.04"</span>, name=<span class="s">"base"</span>)
+base.commands.run(<span class="s">"pip install -r requirements.txt"</span>)
+
+warm = base.save_snapshot(name=<span class="s">"warm"</span>)
+tries = [warm.clone(<span class="s">f"try-{i}"</span>) <span class="k">for</span> i <span class="k">in</span> range(<span class="s">8</span>)]
+print(tries[<span class="s">0</span>].commands.run(<span class="s">"pytest -q"</span>, check=<span class="k">False</span>).stdout)</pre>
+          <p class="panel-note"><span lang="en">pip install ./sdk/python</span><span lang="zh">安装：pip install ./sdk/python</span></p>
+        </div>
+        <div class="panel" role="tabpanel" id="t-ts" aria-labelledby="tb-ts" hidden>
+          <button class="copy" type="button">copy</button>
+<pre><span class="k">import</span> { Client } <span class="k">from</span> <span class="s">'@kumabox/sdk'</span>
+
+<span class="k">const</span> client = <span class="k">new</span> Client({ token: process.env.KUMABOX_TOKEN! })
+<span class="k">const</span> base = <span class="k">await</span> client.create(<span class="s">'ghcr.io/kgpp34/kumabox/ubuntu:24.04'</span>, { name: <span class="s">'base'</span> })
+<span class="k">const</span> warm = <span class="k">await</span> base.saveSnapshot(<span class="s">'warm'</span>)
+<span class="k">const</span> box = <span class="k">await</span> warm.clone(<span class="s">'try-1'</span>)
+<span class="k">const</span> r = <span class="k">await</span> box.commands.run(<span class="s">'uname -a'</span>)
+console.log(r.stdout)</pre>
+          <p class="panel-note"><span lang="en">Build from ./sdk/typescript in the repository.</span><span lang="zh">在仓库 ./sdk/typescript 构建后安装。</span></p>
+        </div>
+        <div class="panel" role="tabpanel" id="t-e2b" aria-labelledby="tb-e2b" hidden>
+          <button class="copy" type="button">copy</button>
+<pre><span class="c"># point an existing E2B client at KumaBox</span>
+export E2B_API_URL=http://127.0.0.1:8765
+export E2B_SANDBOX_URL=http://127.0.0.1:8765
+export E2B_API_KEY=$(sudo cat /etc/kumabox-api.token)
+
+<span class="k">from</span> e2b <span class="k">import</span> Sandbox
+sbx = Sandbox.create()          <span class="c"># template "base" = a local image</span>
+print(sbx.commands.run(<span class="s">"uname -a"</span>).stdout)</pre>
+          <p class="panel-note"><span lang="en">Experimental: create, connect, list, kill, snapshots and foreground commands.run. Not full E2B SDK compatibility yet.</span><span lang="zh">实验性：支持创建、连接、查询、删除、快照和前台 commands.run，尚非完整 E2B SDK 兼容。</span></p>
+        </div>
+        <div class="panel" role="tabpanel" id="t-api" aria-labelledby="tb-api" hidden>
+          <button class="copy" type="button">copy</button>
+<pre><span class="c"># token-authenticated HTTP API, loopback by default</span>
+sudo sh -c 'umask 077; openssl rand -hex 32 &gt; /etc/kumabox-api.token'
+sudo kumabox serve --token-file /etc/kumabox-api.token
+
+<span class="c"># from another machine, tunnel the port</span>
+ssh -L 8765:127.0.0.1:8765 user@kumabox-host</pre>
+          <p class="panel-note"><span lang="en">Listens on 127.0.0.1:8765. Expose remotely only through SSH or a TLS reverse proxy.</span><span lang="zh">默认监听 127.0.0.1:8765，远程访问请走 SSH 隧道或 TLS 反向代理。</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section id="usecases">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">One base for many agents</span><span lang="zh">一个底座，承载各类 Agent</span></p>
+    <h2><span lang="en">Anything that needs a computer of its own.</span><span lang="zh">凡是需要一台自己的电脑的 Agent。</span></h2>
+    <div class="uses">
+      <div class="use"><h3><span lang="en">Computer use</span><span lang="zh">Computer Use</span></h3><p><span lang="en">Run a full Linux desktop in the guest and let the agent see and drive it, with nothing touching the host.</span><span lang="zh">在 guest 里跑完整 Linux 桌面，让 Agent 看屏幕、操作键鼠，全程不碰宿主机。</span></p></div>
+      <div class="use"><h3><span lang="en">Browser agents</span><span lang="zh">浏览器 Agent</span></h3><p><span lang="en">A real browser per task, each with its own IP and profile, reached over the sandbox's CNI address.</span><span lang="zh">每个任务一个真实浏览器，各自独立的 IP 和配置，通过沙箱的 CNI 地址访问。</span></p></div>
+      <div class="use"><h3><span lang="en">Code interpreters</span><span lang="zh">代码解释器与数据分析</span></h3><p><span lang="en">Execute generated code and read and write files through the SDK, then throw the machine away.</span><span lang="zh">执行生成的代码，用 SDK 读写文件，用完整台丢弃。</span></p></div>
+      <div class="use"><h3><span lang="en">Coding agents</span><span lang="zh">AI 编程 Agent</span></h3><p><span lang="en">Clone a warmed repo with dependencies installed and run builds and tests in parallel branches.</span><span lang="zh">从装好依赖的预热快照克隆，在并行分支里编译、跑测试。</span></p></div>
+      <div class="use"><h3><span lang="en">Evaluation and RL</span><span lang="zh">评测与强化学习</span></h3><p><span lang="en">Fan out many identical environments from one snapshot and reset each one cheaply.</span><span lang="zh">从同一个快照扇出大量相同环境，每个环境都能低成本重置。</span></p></div>
+      <div class="use"><h3><span lang="en">CI and untrusted input</span><span lang="zh">CI 与不可信输入</span></h3><p><span lang="en">Clean builds, third-party dependencies and suspicious files, each behind its own kernel.</span><span lang="zh">干净构建、第三方依赖分析、可疑文件处理，各自隔在独立内核之后。</span></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START -->
+<section class="alt" id="start">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">Quick start</span><span lang="zh">快速开始</span></p>
+    <h2><span lang="en">From an OCI image to a forked sandbox in six commands.</span><span lang="zh">六条命令，从 OCI 镜像到分叉出的沙箱。</span></h2>
+    <p class="lede"><span lang="en">You need an amd64 or arm64 Linux host with <code>/dev/kvm</code> and root. Preview builds and the matching guest image are on the <a href="https://github.com/kgpp34/KumaBox/releases" target="_blank" rel="noopener">Releases</a> page.</span><span lang="zh">需要一台能访问 <code>/dev/kvm</code> 的 amd64 或 arm64 Linux 主机，并具备 root 权限。预发布包和配套 guest 镜像见 <a href="https://github.com/kgpp34/KumaBox/releases" target="_blank" rel="noopener">Releases</a>。</span></p>
+    <div class="qs">
+      <div class="tabs">
+        <div class="panel">
+          <button class="copy" type="button">copy</button>
+<pre><span class="c"># 1. build and install</span>
+git clone https://github.com/kgpp34/KumaBox.git &amp;&amp; cd KumaBox &amp;&amp; make build
+sudo install -m 0755 bin/kumabox bin/kumabox-check /usr/local/bin/
+
+<span class="c"># 2. prepare the host once: Cloud Hypervisor, firmware, CNI, EROFS tools</span>
+sudo kumabox-check --upgrade &amp;&amp; sudo kumabox doctor
+
+<span class="c"># 3. pull the guest image</span>
+sudo kumabox image pull ghcr.io/kgpp34/kumabox/ubuntu:24.04
+
+<span class="c"># 4. run a sandbox and talk to it</span>
+sudo kumabox run ghcr.io/kgpp34/kumabox/ubuntu:24.04 --name my-vm --cpus 2 --memory 1GiB
+sudo kumabox exec my-vm -- uname -a
+
+<span class="c"># 5. warm once, fork many</span>
+sudo kumabox snapshot save my-vm --name base
+sudo kumabox clone base --name fresh --wait-network
+
+<span class="c"># 6. clean up</span>
+sudo kumabox stop fresh my-vm &amp;&amp; sudo kumabox rm fresh my-vm
+sudo kumabox snapshot rm base</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="wrap">
+    <p class="eyebrow"><span lang="en">Roadmap</span><span lang="zh">路线图</span></p>
+    <h2><span lang="en">A correct runtime on one host first, then the fleet.</span><span lang="zh">先把单机运行时做对，再走向集群。</span></h2>
+    <div class="road">
+      <div class="done">
+        <h3><span lang="en">Available now</span><span lang="zh">已实现</span></h3>
+        <ul>
+          <li><span class="m">✓</span><span><span lang="en">OCI to EROFS images, CNI networking, vsock exec</span><span lang="zh">OCI 转 EROFS 镜像、CNI 网络、vsock 命令执行</span></span></li>
+          <li><span class="m">✓</span><span><span lang="en">Running snapshots, clone, restore, hibernate, export and import</span><span lang="zh">运行态快照、克隆、恢复、休眠、导出与导入</span></span></li>
+          <li><span class="m">✓</span><span><span lang="en">Hot-plug disks, virtio-fs and VFIO PCI devices</span><span lang="zh">热插拔磁盘、virtio-fs 与 VFIO PCI 设备</span></span></li>
+          <li><span class="m">✓</span><span><span lang="en">Token-authenticated HTTP API (<code>kumabox serve</code>)</span><span lang="zh">带令牌认证的 HTTP API（<code>kumabox serve</code>）</span></span></li>
+          <li><span class="m">✓</span><span><span lang="en">Python and TypeScript SDKs</span><span lang="zh">Python 与 TypeScript SDK</span></span></li>
+          <li><span class="m">✓</span><span><span lang="en">E2B protocol adapter</span><span lang="zh">E2B 协议适配</span><span class="exp"><span lang="en">experimental</span><span lang="zh">实验性</span></span></span></li>
+        </ul>
+      </div>
+      <div>
+        <h3><span lang="en">Next</span><span lang="zh">规划中</span></h3>
+        <ul>
+          <li><span class="m">○</span><span><span lang="en">Warm pools and published density benchmarks</span><span lang="zh">预热池与公开的密度基准</span></span></li>
+          <li><span class="m">○</span><span><span lang="en">Per-sandbox egress policy</span><span lang="zh">按沙箱粒度的出网策略</span></span></li>
+          <li><span class="m">○</span><span><span lang="en">MCP server, so agents can manage sandboxes as tools</span><span lang="zh">MCP server，让 Agent 以工具方式管理沙箱</span></span></li>
+          <li><span class="m">○</span><span><span lang="en">Fuller E2B compatibility and a Go SDK</span><span lang="zh">更完整的 E2B 兼容与 Go SDK</span></span></li>
+          <li><span class="m">○</span><span><span lang="en">Windows and macOS guests</span><span lang="zh">Windows 与 macOS guest</span></span></li>
+          <li><span class="m">○</span><span><span lang="en">Multi-node control plane and scheduling</span><span lang="zh">多节点控制面与调度</span></span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><span lang="en">KumaBox is MIT licensed. Pre-release: CLI, metadata and snapshot formats may still change.</span><span lang="zh">KumaBox 基于 MIT 协议开源。目前为预发布版，命令行、元数据和快照格式仍可能变化。</span></span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/kgpp34/KumaBox" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/kgpp34/KumaBox/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/kgpp34/KumaBox/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://github.com/kgpp34/KumaBox/blob/rewrite/p12-v1/README.zh-CN.md" target="_blank" rel="noopener">中文 README</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  // language: saved choice, else browser language
+  var lang=null;
+  try{lang=localStorage.getItem('kb-lang')}catch(e){}
+  if(!lang){lang=(navigator.language||'').toLowerCase().indexOf('zh')===0?'zh':'en'}
+  function setLang(l){root.setAttribute('data-lang',l);root.setAttribute('lang',l==='zh'?'zh-CN':'en');try{localStorage.setItem('kb-lang',l)}catch(e){}}
+  setLang(lang);
+  document.getElementById('lang-toggle').addEventListener('click',function(){setLang(root.getAttribute('data-lang')==='zh'?'en':'zh')});
+
+  // same-host comparison bars (ms)
+  var rows=[
+    {en:'Cold boot, 0 NIC',zh:'冷启动，0 网卡',a:464.9,b:452.0},
+    {en:'Cold boot, 1 NIC',zh:'冷启动，1 网卡',a:558.0,b:545.6},
+    {en:'Snapshot clone, 0 NIC',zh:'快照克隆，0 网卡',a:90.9,b:80.9},
+    {en:'Snapshot clone, 1 NIC',zh:'快照克隆，1 网卡',a:153.2,b:144.1}
+  ], max=600, host=document.getElementById('bars');
+  rows.forEach(function(r){
+    var g=document.createElement('div');g.className='group';
+    g.innerHTML='<div class="gl"><span lang="en">'+r.en+'</span><span lang="zh">'+r.zh+'</span></div>'+
+      bar('KumaBox',r.a,'var(--series-a)',r)+bar('Cocoon',r.b,'var(--series-b)',r);
+    host.appendChild(g);
+  });
+  function bar(name,v,color,r){
+    var pct=(v/max*100).toFixed(2);
+    return '<div class="bar-row" title="'+r.en+' · '+name+': '+v.toFixed(1)+' ms"><div class="track"><div class="bar" style="width:'+pct+'%;background:'+color+'"></div></div><span class="v">'+v.toFixed(1)+'</span></div>';
+  }
+
+  // tabs
+  document.querySelectorAll('[data-tabs]').forEach(function(box){
+    var tabs=box.querySelectorAll('[role=tab]');
+    function select(t){
+      tabs.forEach(function(x){var on=x===t;x.setAttribute('aria-selected',on);x.tabIndex=on?0:-1;document.getElementById(x.getAttribute('aria-controls')).hidden=!on});
+      t.focus();
+    }
+    tabs.forEach(function(t,i){
+      t.addEventListener('click',function(){select(t)});
+      t.addEventListener('keydown',function(e){
+        if(e.key==='ArrowRight')select(tabs[(i+1)%tabs.length]);
+        if(e.key==='ArrowLeft')select(tabs[(i-1+tabs.length)%tabs.length]);
+      });
+    });
+  });
+
+  // copy buttons
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var pre=btn.parentElement.querySelector('pre'), text=pre.innerText;
+      function done(msg){btn.textContent=msg;setTimeout(function(){btn.textContent='copy'},1600)}
+      function fallback(){var s=window.getSelection(),r=document.createRange();r.selectNodeContents(pre);s.removeAllRanges();s.addRange(r);done('selected')}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){done('copied')},fallback)}else{fallback()}
+    });
+  });
+})();
+</script>
+</body>
+</html>
